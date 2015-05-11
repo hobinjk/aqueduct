@@ -1,0 +1,31 @@
+{
+  "name": "aqueduct",
+  "version": "0.0.0",
+  "description": "Automatic JavaScript Type Annotations",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hobinjk/aqueduct"
+  },
+  "author": "James Hobin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hobinjk/aqueduct/issues"
+  },
+  "homepage": "https://github.com/hobinjk/aqueduct",
+  "devDependencies": {
+    "browserify": "^9.0.8",
+    "gulp": "^3.8.11",
+    "gulp-sourcemaps": "^1.5.1",
+    "gulp-uglify": "^1.2.0",
+    "gulp-util": "^3.0.4",
+    "lodash": "^3.6.0",
+    "lodash.assign": "^3.0.0",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.1.0"
+  }
+}
