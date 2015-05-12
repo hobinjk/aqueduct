@@ -129,7 +129,7 @@ Scope.prototype.processFunction = function(node) {
 
   for (var i = 0; i < node.params.length; i++) {
     var param = node.params[i];
-    fun.addParam(node.id.name, i, param.name);
+    fun.addParam(i, param.name);
     functionScope.addVariable(param.name);
   }
 

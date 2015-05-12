@@ -2,6 +2,11 @@
   stroke: #fff;
   stroke-width: 1.5px;
 }
+.node text {
+  stroke: black;
+  font-family: 'Helvetica', sans-serif;
+  stroke-width: 0px;
+}
 
 .link {
   stroke: #999;

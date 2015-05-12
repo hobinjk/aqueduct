@@ -30,5 +30,21 @@ FunctionData.prototype.addCall = function(args) {
   }
 };
 
+/**
+ * Custom toString for more efficiently representing parameters
+ * @return {String}
+ */
+FunctionData.prototype.toString = function() {
+  var str = this.name + '(';
+  for (var i = 0; i < this.params.length; i++) {
+    str += this.params[i];
+    if (i < this.params.length - 1) {
+      str += ', ';
+    }
+  }
+  str += ')';
+  return str;
+};
+
 /** Export constructor */
 module.exports = FunctionData;

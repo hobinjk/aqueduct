@@ -112,18 +112,21 @@ function visualizeConstraints(constraints) {
       .call(force.drag);
 
   node.append('title')
-      .text(function(d) {
-        if (d.type === 'FunctionDeclaration') {
-          return 'function ' + d.id.name;
-        } else if (d.type === 'Identifier') {
-          return 'id ' + d.name;
-        } else if (d.type === 'VariableData') {
-          return 'var ' + d.name;
-        } else if (d.type === 'FunctionData') {
-          return 'fun ' + d.name;
-        }
-        return d.type;
-      });
+    .text(function(d) {
+      if (d.type === 'FunctionDeclaration') {
+        return 'function ' + d.id.name;
+      } else if (d.type === 'Identifier') {
+        return 'id ' + d.name;
+      } else if (d.type === 'VariableData') {
+        return 'var ' + d.name;
+      } else if (d.type === 'FunctionData') {
+        return d.toString();
+      } else if (d.type === 'BinaryExpression' ||
+                 d.type === 'UnaryExpression') {
+        return d.operator;
+      }
+      return d.type;
+    });
 
   force.on('tick', function() {
     link.attr('x1', function(d) { return d.source.x; })
