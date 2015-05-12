@@ -39,10 +39,7 @@ xhr.onload = function() {
     return;
   }
   var source = xhr.responseText;
-  var astRoot = esprima.parse(source);
-  var globalScope = new Scope(null, astRoot);
-  globalScope.processNode(astRoot);
-  window.globalScope = globalScope;
+  processSource(source);
 };
 
 /**
@@ -54,3 +51,22 @@ xhr.onerror = function(e) {
 };
 
 xhr.send(null);
+
+function processSource(source) {
+  var astRoot = esprima.parse(source, {loc: true});
+  var globalScope = new Scope(null, astRoot);
+  globalScope.processNode(astRoot);
+
+  var allConstraints = getAllConstraints(globalScope);
+
+  window.globalScope = globalScope;
+  window.allConstraints = allConstraints;
+}
+
+function getAllConstraints(scope) {
+  var constraints = [].concat(scope.constraints);
+  scope.childScopes.forEach(function(child) {
+    constraints = constraints.concat(getAllConstraints(child));
+  });
+  return constraints;
+}
