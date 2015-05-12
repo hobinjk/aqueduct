@@ -1,4 +1,4 @@
-var Globals = require('./globals.js');
+var Type = require('./type.js');
 var VariableData = require('./VariableData.js');
 var FunctionData = require('./FunctionData.js');
 var ConstraintVariants = require('./constraint-variants.js');
@@ -6,10 +6,11 @@ var ConstraintVariants = require('./constraint-variants.js');
 var TypeEqualityConstraint = ConstraintVariants.TypeEqualityConstraint;
 var TypeConstraint = ConstraintVariants.TypeConstraint;
 
-var BooleanType = Globals.BooleanType;
-var LabelType = Globals.LabelType;
-var NumberType = Globals.NumberType;
-var ObjectType = Globals.ObjectType;
+var BooleanType = Type.BooleanType;
+var LabelType = Type.LabelType;
+var NumberType = Type.NumberType;
+var StringType = Type.StringType;
+var ObjectType = Type.ObjectType;
 
 function Scope(parentScope, node) {
   if (parentScope) {
