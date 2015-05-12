@@ -1,18 +1,26 @@
 var Globals = require('./globals.js');
+var VariableData = require('./VariableData.js');
+var FunctionData = require('./FunctionData.js');
+var ConstraintVariants = require('./constraint-variants.js');
+
+var TypeEqualityConstraint = ConstraintVariants.TypeEqualityConstraint;
+var TypeConstraint = ConstraintVariants.TypeConstraint;
 
 var BooleanType = Globals.BooleanType;
 var LabelType = Globals.LabelType;
 var NumberType = Globals.NumberType;
 var ObjectType = Globals.ObjectType;
 
-function Scope(parentScope) {
+function Scope(parentScope, node) {
   if (parentScope) {
     this.parentScope = parentScope;
     this.parentScope.addChildScope(this);
   }
+  this.node = node;
   this.variables = {};
   this.functions = {};
   this.childScopes = [];
+  this.constraints = [];
 }
 
 /**
@@ -21,6 +29,61 @@ function Scope(parentScope) {
  */
 Scope.prototype.addChildScope = function(childScope) {
   this.childScopes.push(childScope);
+};
+
+/**
+ * Register a variable in this scope
+ * @param {string} variableName
+ * @param {Expression?} initExpr
+ * @return {VariableData}
+ */
+Scope.prototype.addVariable = function(variableName, initExpr) {
+  if (this.variables[variableName]) {
+    console.error('Duplicate variable declaration: ' + variableName);
+    return;
+  }
+  var parentScope = this.parentScope;
+  while (parentScope) {
+    if (parentScope.variables[variableName]) {
+      console.warn('Shadowed variable declaration: ' + variableName);
+      break;
+    }
+    parentScope = parentScope.parentScope;
+  }
+  var varData = new VariableData(variableName, initExpr);
+  this.variables[variableName] = varData;
+  return varData;
+};
+
+/**
+ * Register a function in this scope
+ * @param {string} functionName
+ * @return {VariableData}
+ */
+Scope.prototype.addFunction = function(functionName) {
+  if (this.functions[functionName]) {
+    console.error('Duplicate function declaration: ' + functionName);
+    return;
+  }
+  var parentScope = this.parentScope;
+  while (parentScope) {
+    if (parentScope.functions[functionName]) {
+      console.warn('Shadowed function declaration: ' + functionName);
+      break;
+    }
+    parentScope = parentScope.parentScope;
+  }
+  var funData = new FunctionData(functionName);
+  this.functions[functionName] = funData;
+  return funData;
+};
+
+/**
+ * Add a constraint
+ * @param {Constraint} constraint
+ */
+Scope.prototype.addConstraint = function(constraint) {
+  this.constraints.push(constraint);
 };
 
 /**
@@ -55,13 +118,14 @@ Scope.prototype.processProgram = function(node) {
  */
 Scope.prototype.processFunction = function(node) {
   // Add the function to this scope
-  this.addFunction(node.id.name);
+  var fun = this.addFunction(node.id.name);
   // Create a dependent scope
   var functionScope = new Scope(this, node);
+  fun.scope = functionScope;
 
   for (var i = 0; i < node.params.length; i++) {
     var param = node.params[i];
-    this.addFunctionParam(node.id.name, i, param.name);
+    fun.addParam(node.id.name, i, param.name);
     functionScope.addVariable(param.name);
   }
 
@@ -158,7 +222,8 @@ Scope.prototype.processWithStatement = function(node) {
  */
 Scope.prototype.processSwitchStatement = function(node) {
   var switchScope = new Scope(this, node);
-  this.addConstraint([node.discriminant].concat(node.cases), typeEquality);
+  this.addConstraint(
+      new TypeEqualityConstraint([node.discriminant].concat(node.cases)));
   this.processNode(node.discriminant);
   node.cases.forEach(switchScope.processNode.bind(switchScope));
 };

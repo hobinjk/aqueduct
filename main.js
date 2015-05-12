@@ -40,7 +40,7 @@ xhr.onload = function() {
   }
   var source = xhr.responseText;
   var astRoot = esprima.parse(source);
-  var globalScope = new Scope(null);
+  var globalScope = new Scope(null, astRoot);
   globalScope.processNode(astRoot);
   window.globalScope = globalScope;
 };

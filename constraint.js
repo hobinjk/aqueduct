@@ -3,11 +3,11 @@
  * i.e. a + b results in
  * Constraint([a, b], [["String", null], ["number", "number"]])
  * @constructor
- * @param {Array<Expression>} expressions
+ * @param {Array<Node>} nodes
  * @param {Array<Array<Type>>} typePossibilities
  */
-function Constraint(expressions, typePossibilities) {
-  this.expressions = expressions;
+function Constraint(nodes, typePossibilities) {
+  this.nodes = nodes;
   this.typePossibilities = typePossibilities;
 
   this.constrainExpressions();
