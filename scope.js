@@ -148,6 +148,13 @@ Scope.prototype.processEmptyStatement = function(node) {
 };
 
 /**
+ * Do nothing to an Identifier
+ * @param {Identifier} node
+ */
+Scope.prototype.processIdentifier = function(node) {
+};
+
+/**
  * Process a block statement.
  * @param {BlockStatement} node
  */
@@ -488,6 +495,8 @@ Scope.prototype.processBinaryExpression = function(node) {
     console.warn('Binary operator ' + node.operator + ' not supported');
     break;
   }
+  this.processNode(node.left);
+  this.processNode(node.right);
 };
 
 /**
@@ -515,6 +524,8 @@ Scope.prototype.processAssignmentExpression = function(node) {
           new TypeConstraint(this, [node.left, node.right], NumberType));
       break;
   }
+  this.processNode(node.left);
+  this.processNode(node.right);
 };
 
 /**
@@ -538,17 +549,23 @@ Scope.prototype.getVariable = function(name) {
 /**
  * Lookup a function in this and all parent scopes. Might not obey JavaScript's
  * scoping
- * @param {String} name
+ * @param {Node} node
  * @return {FunctionData?}
  */
-Scope.prototype.getFunction = function(name) {
-  var scope = this;
-  while (scope) {
-    var fun = scope.functions[name];
-    if (fun) {
-      return fun;
-    }
-    scope = scope.parentScope;
+Scope.prototype.getFunction = function(node) {
+  var name = node.name;
+
+  if (node.type !== 'Identifier') {
+    console.warn('IFE is strange, horrible, and probably unsupported');
+    name = '__anonfunc_' + node.loc.start.line + '_' + node.loc.start.column;
+  }
+
+  var fun = this.functions[name];
+  if (fun) {
+    return fun;
+  }
+  if (this.parentScope) {
+    return this.parentScope.getFunction(node);
   }
   return null;
 };
@@ -570,6 +587,10 @@ Scope.prototype.constraintReduceAll = function(nodes) {
 Scope.prototype.constraintReduce = function(node) {
   if (node.type === 'Identifier') {
     return this.getVariable(node.name);
+  } else if (node.type === 'CallExpression') {
+    return this.getFunction(node.callee);
+  } else if (node.type === 'FunctionDeclaration') {
+    return this.getFunction(node.id);
   }
   return node;
 };
@@ -591,6 +612,9 @@ Scope.prototype.processLogicalExpression = function(node) {
   this.addConstraint(new TypeConstraint(this, [node], BooleanType));
   this.addConstraint(
       new TypeConstraint(this, [node.left, node.right], BooleanType));
+
+  this.processNode(node.left);
+  this.processNode(node.right);
 };
 
 /**
@@ -599,9 +623,12 @@ Scope.prototype.processLogicalExpression = function(node) {
  */
 Scope.prototype.processConditionalExpression = function(node) {
   this.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
+  this.processNode(node.test);
   this.addConstraint(
       new TypeEqualityConstraint(
         this, [node, node.alternate, node.consequent]));
+  this.processNode(node.alternate);
+  this.processNode(node.consequent);
 };
 
 /**
@@ -617,8 +644,11 @@ Scope.prototype.processNewExpression = function(node) {
  * @param {CallExpression} node
  */
 Scope.prototype.processCallExpression = function(node) {
-  console.warn('Function calls are weird and scary, I think other parts ' +
-      'will handle this');
+  var functionData = node.callee;
+  functionData.addCall(node.arguments);
+  node.arguments.forEach(function() {
+    this.processNode(node);
+  });
 };
 
 /**
