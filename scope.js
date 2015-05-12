@@ -171,7 +171,7 @@ Scope.prototype.processExpressionStatement = function(node) {
  * @param {IfStatement} node
  */
 Scope.prototype.processIfStatement = function(node) {
-  this.addConstraint([node.test], isBooleanType);
+  this.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
 
   this.processNode(node.test); // test <: Expression
 
@@ -227,7 +227,7 @@ Scope.prototype.processWithStatement = function(node) {
 Scope.prototype.processSwitchStatement = function(node) {
   var switchScope = new Scope(this, node);
   this.addConstraint(
-      new TypeEqualityConstraint([node.discriminant].concat(node.cases)));
+      new TypeEqualityConstraint(this, [node.discriminant].concat(node.cases)));
   this.processNode(node.discriminant);
   node.cases.forEach(switchScope.processNode.bind(switchScope));
 };
@@ -242,7 +242,8 @@ Scope.prototype.processReturnStatement = function(node) {
   while (returnedScope) {
     if (returnedScope.node.type === 'FunctionDeclaration') {
       returnedScope.parentScope.addConstraint(
-          new FunctionReturnsConstraint([returnedScope.node], node.argument));
+          new FunctionReturnsConstraint(
+            this, [returnedScope.node], node.argument));
       break;
     }
     returnedScope = returnedScope.parentScope;
@@ -256,9 +257,9 @@ Scope.prototype.processReturnStatement = function(node) {
  * @param {ThrowStatement} node
  */
 Scope.prototype.processThrowStatement = function(node) {
-  this.addConstraint(new UnionConstraint(
-        new TypeConstraint([node.argument], StringType),
-        new TypeConstraint([node.argument], new Type('Error'))));
+  this.addConstraint(new UnionConstraint([
+        new TypeConstraint(this, [node.argument], StringType),
+        new TypeConstraint(this, [node.argument], new Type('Error'))]));
   this.processNode(node.argument);
 };
 
@@ -289,7 +290,7 @@ Scope.prototype.processTryStatement = function(node) {
  * @param {WhileStatement} node
  */
 Scope.prototype.processWhileStatement = function(node) {
-  this.addConstraint([node.test], isBooleanType);
+  this.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
   this.processNode(node.test);
   var whileScope = new Scope(this, node);
   whileScope.processNode(node.body);
@@ -304,7 +305,7 @@ Scope.prototype.processDoWhileStatement = function(node) {
 
   doWhileScope.processNode(node.body);
 
-  this.addConstraint([node.test], isBooleanType);
+  this.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
   this.processNode(node.test);
 };
 
@@ -319,7 +320,7 @@ Scope.prototype.processForStatement = function(node) {
     forScope.processNode(node.init);
   }
   if (node.test) {
-    forScope.addConstraint([node.test], isBooleanType);
+    forScope.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
     forScope.processNode(test);
   }
   if (node.update) {
@@ -338,7 +339,8 @@ Scope.prototype.processForInStatement = function(node) {
   if (node.each) {
     accessor = valuesOf;
   }
-  forInScope.addConstraint([node.left, accessor(node.right)], typeEquality);
+  forInScope.addConstraint(
+      new TypeEqualityConstraint(this, [node.left, accessor(node.right)]));
   forInScope.processNode(node.left);
   forInScope.processNode(node.right);
   forInScope.processNode(node.body);
@@ -351,7 +353,8 @@ Scope.prototype.processForInStatement = function(node) {
 Scope.prototype.processForOfStatement = function(node) {
   var forOfScope = new Scope(this, node);
 
-  forOfScope.addConstraint([node.left, valuesOf(node.right)], typeEquality);
+  forOfScope.addConstraint(
+      new TypeEqualityConstraint(this, [node.left, valuesOf(node.right)]));
   forOfScope.processNode(node.left);
   forOfScope.processNode(node.right);
   forOfScope.processNode(node.body);
@@ -392,7 +395,7 @@ Scope.prototype.processVariableDeclaration = function(node) {
 Scope.prototype.processVariableDeclarator = function(node) {
   if (node.id.type === 'Identifier') {
     this.addVariable(node.id.name, node.it); // questionable
-    this.addConstraint(new TypeEqualityConstraint([node.id, node.init]));
+    this.addConstraint(new TypeEqualityConstraint(this, [node.id, node.init]));
   } else {
     this.error('Destructuring not handled');
   }
@@ -416,14 +419,15 @@ Scope.prototype.processUnaryExpression = function(node) {
     case '+':
     case '-':
     case '~':
-      this.addConstraint(new TypeConstraint([node, node.argument], NumberType));
+      this.addConstraint(
+          new TypeConstraint(this, [node, node.argument], NumberType));
       break;
     case '!':
       // Argument can actually be any type because JavaScript is strange
-      this.addConstraint(new TypeConstraint([node], BooleanType));
+      this.addConstraint(new TypeConstraint(this, [node], BooleanType));
       break;
     case 'typeof':
-      this.addConstraint(new TypeConstraint([node], StringType));
+      this.addConstraint(new TypeConstraint(this, [node], StringType));
       break;
     case 'void':
     case 'delete':
@@ -442,23 +446,28 @@ Scope.prototype.processBinaryExpression = function(node) {
   case '!=':
   case '===':
   case '!==':
-    this.addConstraint(new TypeConstraint([node], BooleanType));
-    this.addConstraint(new TypeEqualityConstraint([node.left, node.right]));
+    this.addConstraint(new TypeConstraint(this, [node], BooleanType));
+    this.addConstraint(
+        new TypeEqualityConstraint(this, [node.left, node.right]));
     break;
   case '<':
   case '<=':
   case '>':
   case '>=':
-    this.addConstraint(new TypeConstraint([node], BooleanType));
+    this.addConstraint(new TypeConstraint(this, [node], BooleanType));
     this.addConstraint(
-        new TypeConstraint([node.left, node.right], NumberType));
+        new TypeConstraint(this, [node.left, node.right], NumberType));
     break;
   case '+':
-    this.addConstraint(new IntersectionConstraint(
-          new TypeEqualityConstraint([node, node.left, node.right]),
-          new UnionConstraint(
-            new TypeConstraint([node, node.left, node.right], StringType),
-            new TypeConstraint([node, node.left, node.right], NumberType))));
+    this.addConstraint(new IntersectionConstraint([
+          new TypeEqualityConstraint(this, [node, node.left, node.right]),
+          new UnionConstraint([
+            new TypeConstraint(
+              this, [node, node.left, node.right], StringType),
+            new TypeConstraint(
+              this, [node, node.left, node.right], NumberType)
+          ])
+    ]));
     break;
   case '<<':
   case '>>':
@@ -471,7 +480,7 @@ Scope.prototype.processBinaryExpression = function(node) {
   case '^':
   case '&':
     this.addConstraint(
-        new TypeConstraint([node, node.left, node.right], NumberType));
+        new TypeConstraint(this, [node, node.left, node.right], NumberType));
     break;
   case 'in':
   case 'instanceof':
@@ -488,7 +497,8 @@ Scope.prototype.processBinaryExpression = function(node) {
 Scope.prototype.processAssignmentExpression = function(node) {
   switch (node.operator) {
     case '=':
-      this.addConstraint(new TypeEqualityConstraint([node.left, node.right]));
+      this.addConstraint(
+          new TypeEqualityConstraint(this, [node.left, node.right]));
       break;
     case '+=':
     case '-=':
@@ -502,9 +512,66 @@ Scope.prototype.processAssignmentExpression = function(node) {
     case '^=':
     case '&=':
       this.addConstraint(
-          new TypeConstraint([node.left, node.right], NumberType));
+          new TypeConstraint(this, [node.left, node.right], NumberType));
       break;
   }
+};
+
+/**
+ * Lookup a variable in this and all parent scopes. Might not obey JavaScript's
+ * var scoping
+ * @param {String} name
+ * @return {VariableData?}
+ */
+Scope.prototype.getVariable = function(name) {
+  var scope = this;
+  while (scope) {
+    var variable = scope.variables[name];
+    if (variable) {
+      return variable;
+    }
+    scope = scope.parentScope;
+  }
+  return null;
+};
+
+/**
+ * Lookup a function in this and all parent scopes. Might not obey JavaScript's
+ * scoping
+ * @param {String} name
+ * @return {FunctionData?}
+ */
+Scope.prototype.getFunction = function(name) {
+  var scope = this;
+  while (scope) {
+    var fun = scope.functions[name];
+    if (fun) {
+      return fun;
+    }
+    scope = scope.parentScope;
+  }
+  return null;
+};
+
+/**
+ * Reduce a series of nodes according to the current entries of the scope
+ * @param {Array<Node>} nodes
+ * @return {Array<Node or VariableData or FunctionData>}
+ */
+Scope.prototype.constraintReduceAll = function(nodes) {
+  return nodes.map(this.constraintReduce.bind(this));
+};
+
+/**
+ * Reduce a node according to the current entries of the scope
+ * @param {Node} node
+ * @return {Node or VariableData or FunctionData}
+ */
+Scope.prototype.constraintReduce = function(node) {
+  if (node.type === 'Identifier') {
+    return this.getVariable(node.name);
+  }
+  return node;
 };
 
 /**
@@ -512,8 +579,8 @@ Scope.prototype.processAssignmentExpression = function(node) {
  * @param {UpdateExpression} node
  */
 Scope.prototype.processUpdateExpression = function(node) {
-  this.addConstraint(new TypeConstraint([node], NumberType));
-  this.addConstraint(new TypeConstraint([node.argument], NumberType));
+  this.addConstraint(new TypeConstraint(this, [node], NumberType));
+  this.addConstraint(new TypeConstraint(this, [node.argument], NumberType));
 };
 
 /**
@@ -521,8 +588,9 @@ Scope.prototype.processUpdateExpression = function(node) {
  * @param {LogicalExpression} node
  */
 Scope.prototype.processLogicalExpression = function(node) {
-  this.addConstraint(new TypeConstraint([node], BooleanType));
-  this.addConstraint(new TypeConstraint([node.left, node.right], BooleanType));
+  this.addConstraint(new TypeConstraint(this, [node], BooleanType));
+  this.addConstraint(
+      new TypeConstraint(this, [node.left, node.right], BooleanType));
 };
 
 /**
@@ -530,9 +598,10 @@ Scope.prototype.processLogicalExpression = function(node) {
  * @param {ConditionalExpression} node
  */
 Scope.prototype.processConditionalExpression = function(node) {
-  this.addConstraint(new TypeConstraint([node.test], BooleanType));
+  this.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
   this.addConstraint(
-      new TypeEqualityConstraint([node, node.alternate, node.consequent]));
+      new TypeEqualityConstraint(
+        this, [node, node.alternate, node.consequent]));
 };
 
 /**
@@ -563,7 +632,7 @@ Scope.prototype.processMemberExpression = function(node) {
     return;
   }
   this.addConstraint(
-      new HasPropertyConstraint([node.object], node.property.name));
+      new HasPropertyConstraint(this, [node.object], node.property.name));
 };
 
 /** Export constructor */

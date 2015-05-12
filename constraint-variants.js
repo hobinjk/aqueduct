@@ -1,7 +1,7 @@
 var Utils = require('./utils.js');
 
-function TypeConstraint(nodes, type) {
-  this.nodes = nodes;
+function TypeConstraint(scope, nodes, type) {
+  this.nodes = scope.constraintReduceAll(nodes);
   this.type = type;
 }
 
@@ -13,8 +13,15 @@ TypeConstraint.prototype.getSatisfiableTypes = function(assignments) {
   return [this.type];
 };
 
-function TypeEqualityConstraint(nodes) {
-  this.nodes = nodes;
+/**
+ * @return {Array<Node>}
+ */
+TypeConstraint.prototype.getNodes = function() {
+  return this.nodes;
+};
+
+function TypeEqualityConstraint(scope, nodes) {
+  this.nodes = scope.constraintReduceAll(nodes);
 }
 
 /**
@@ -28,9 +35,16 @@ TypeEqualityConstraint.prototype.getSatisfiableTypes = function(assignments) {
   return Utils.intersection(allTyes);
 };
 
-function FunctionReturnsConstraint(functionNodes, returnNode) {
-  this.functionNodes = functionNodes;
-  this.returnNode = returnNode;
+/**
+ * @return {Array<Node>}
+ */
+TypeEqualityConstraint.prototype.getNodes = function() {
+  return this.nodes;
+};
+
+function FunctionReturnsConstraint(scope, functionNodes, returnNode) {
+  this.functionNodes = scope.constraintReduceAll(functionNodes);
+  this.returnNode = scope.constraintReduce(returnNode);
 }
 
 /**
@@ -40,6 +54,13 @@ function FunctionReturnsConstraint(functionNodes, returnNode) {
 FunctionReturnsConstraint
     .prototype.getSatisfiableTypes = function(assignments) {
   return assignments.getTypes(returnNode);
+};
+
+/**
+ * @return {Array<Node>}
+ */
+FunctionReturnsConstraint.prototype.getNodes = function() {
+  return this.functionNodes.concat([this.returnNode]);
 };
 
 function UnionConstraint(constraints) {
@@ -57,6 +78,15 @@ UnionConstraint.prototype.getSatisfiableTypes = function(assignments) {
   return Utils.union(allSatisfiableTypes);
 };
 
+/**
+ * @return {Array<Node>}
+ */
+UnionConstraint.prototype.getNodes = function() {
+  // All constraint members are applied to the same set of nodes
+  // TODO: not actually enforced
+  return this.constraints[0].getNodes();
+};
+
 function IntersectionConstraint(constraints) {
   this.constraints = constraints;
 }
@@ -70,6 +100,45 @@ IntersectionConstraint.prototype.getSatisfiableTypes = function(assignments) {
     return constraint.getSatisfiableTypes(assignments);
   });
   return Utils.intersection(allSatisfiableTypes);
+};
+
+/**
+ * @return {Array<Node>}
+ */
+IntersectionConstraint.prototype.getNodes = function() {
+  // All constraint members are applied to the same set of nodes
+  // TODO: not actually enforced
+  return this.constraints[0].getNodes();
+};
+
+function HasPropertyConstraint(scope, nodes, propertyName) {
+  this.nodes = scope.constraintReduceAll(nodes);
+  this.nodes.forEach(function(node) {
+    if (node.type) {
+      console.warn('YOU WERE WRONG: ' + node.type);
+    }
+  });
+  this.propertyName = propertyName;
+}
+
+/**
+ * @return {Array<Node>}
+ */
+HasPropertyConstraint.prototype.getNodes = function() {
+  return this.nodes;
+};
+
+/**
+ * @param {AssignmentFinder} assignments
+ * @return {Array<Type>}
+ */
+HasPropertyConstraint.prototype.getSatisfiableTypes = function(assignments) {
+  var sharedTypes = Utils.intersection(this.nodes.map(function(node) {
+    return assignments.getTypes(node);
+  }));
+  return sharedTypes.filter(function(sharedType) {
+    return sharedType.hasMember(this.propertyName);
+  });
 };
 
 /** Export all constraint variants */

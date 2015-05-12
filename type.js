@@ -3,6 +3,14 @@ function Type(name, members) {
   this.members = members || [];
 }
 
+/**
+ * @param {String} memberName
+ * @return {boolean}
+ */
+Type.prototype.hasMember = function(memberName) {
+  return this.members.contains(memberName);
+};
+
 /** Built-in types */
 Type.BooleanType = new Type('boolean',
                             Object.getOwnPropertyNames(Boolean.prototype));

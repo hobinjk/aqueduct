@@ -1,4 +1,5 @@
 function FunctionData(name) {
+  this.type = 'FunctionData';
   this.name = name;
   this.params = [];
   this.scope = null;
