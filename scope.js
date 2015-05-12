@@ -3,8 +3,11 @@ var VariableData = require('./VariableData.js');
 var FunctionData = require('./FunctionData.js');
 var ConstraintVariants = require('./constraint-variants.js');
 
+var FunctionReturnsConstraint = ConstraintVariants.FunctionReturnsConstraint;
 var TypeEqualityConstraint = ConstraintVariants.TypeEqualityConstraint;
 var TypeConstraint = ConstraintVariants.TypeConstraint;
+var UnionConstraint = ConstraintVariants.UnionConstraint;
+var IntersectionConstraint = ConstraintVariants.IntersectionConstraint;
 
 var BooleanType = Type.BooleanType;
 var LabelType = Type.LabelType;
@@ -237,14 +240,15 @@ Scope.prototype.processReturnStatement = function(node) {
   var returnedScope = this;
   // Traverse upwards in scopes until a Function statement is found
   while (returnedScope) {
-    if (returnedScope.node.type === 'Function') {
+    if (returnedScope.node.type === 'FunctionDeclaration') {
       returnedScope.parentScope.addConstraint(
-          [returnedScope.node],
-          functionReturns(node.argument));
+          new FunctionReturnsConstraint([returnedScope.node], node.argument));
       break;
     }
     returnedScope = returnedScope.parentScope;
   }
+
+  this.processNode(node.argument);
 };
 
 /**
@@ -252,7 +256,9 @@ Scope.prototype.processReturnStatement = function(node) {
  * @param {ThrowStatement} node
  */
 Scope.prototype.processThrowStatement = function(node) {
-  this.addConstraint([node.argument], isEither(isStringType, isType('Error')));
+  this.addConstraint(new UnionConstraint(
+        new TypeConstraint([node.argument], StringType),
+        new TypeConstraint([node.argument], new Type('Error'))));
   this.processNode(node.argument);
 };
 
@@ -385,10 +391,179 @@ Scope.prototype.processVariableDeclaration = function(node) {
  */
 Scope.prototype.processVariableDeclarator = function(node) {
   if (node.id.type === 'Identifier') {
-    this.addVariable(node.id.name, node.init);
+    this.addVariable(node.id.name, node.it); // questionable
+    this.addConstraint(new TypeEqualityConstraint([node.id, node.init]));
   } else {
     this.error('Destructuring not handled');
   }
+};
+
+/**
+ * Process a function expression
+ * @param {FunctionExpression} node
+ */
+Scope.prototype.processFunctionExpression = function(node) {
+  // FunctionExpression <: Function, Expression
+  this.processFunction(node);
+};
+
+/**
+ * Process a unary expression
+ * @param {UnaryExpression} node
+ */
+Scope.prototype.processUnaryExpression = function(node) {
+  switch (node.operator) {
+    case '+':
+    case '-':
+    case '~':
+      this.addConstraint(new TypeConstraint([node, node.argument], NumberType));
+      break;
+    case '!':
+      // Argument can actually be any type because JavaScript is strange
+      this.addConstraint(new TypeConstraint([node], BooleanType));
+      break;
+    case 'typeof':
+      this.addConstraint(new TypeConstraint([node], StringType));
+      break;
+    case 'void':
+    case 'delete':
+      console.warn('Scope does not handle ' + node.operator + ' operators');
+      break;
+  }
+};
+
+/**
+ * Process a binary expression
+ * @param {BinaryExpression} node
+ */
+Scope.prototype.processBinaryExpression = function(node) {
+  switch (node.operator) {
+  case '==':
+  case '!=':
+  case '===':
+  case '!==':
+    this.addConstraint(new TypeConstraint([node], BooleanType));
+    this.addConstraint(new TypeEqualityConstraint([node.left, node.right]));
+    break;
+  case '<':
+  case '<=':
+  case '>':
+  case '>=':
+    this.addConstraint(new TypeConstraint([node], BooleanType));
+    this.addConstraint(
+        new TypeConstraint([node.left, node.right], NumberType));
+    break;
+  case '+':
+    this.addConstraint(new IntersectionConstraint(
+          new TypeEqualityConstraint([node, node.left, node.right]),
+          new UnionConstraint(
+            new TypeConstraint([node, node.left, node.right], StringType),
+            new TypeConstraint([node, node.left, node.right], NumberType))));
+    break;
+  case '<<':
+  case '>>':
+  case '>>>':
+  case '-':
+  case '*':
+  case '/':
+  case '%':
+  case '|':
+  case '^':
+  case '&':
+    this.addConstraint(
+        new TypeConstraint([node, node.left, node.right], NumberType));
+    break;
+  case 'in':
+  case 'instanceof':
+  case '..':
+    console.warn('Binary operator ' + node.operator + ' not supported');
+    break;
+  }
+};
+
+/**
+ * Process an assignment expression
+ * @param {AssignmentExpression} node
+ */
+Scope.prototype.processAssignmentExpression = function(node) {
+  switch (node.operator) {
+    case '=':
+      this.addConstraint(new TypeEqualityConstraint([node.left, node.right]));
+      break;
+    case '+=':
+    case '-=':
+    case '*=':
+    case '/=':
+    case '%=':
+    case '<<=':
+    case '>>=':
+    case '>>>=':
+    case '|=':
+    case '^=':
+    case '&=':
+      this.addConstraint(
+          new TypeConstraint([node.left, node.right], NumberType));
+      break;
+  }
+};
+
+/**
+ * Process an update expression
+ * @param {UpdateExpression} node
+ */
+Scope.prototype.processUpdateExpression = function(node) {
+  this.addConstraint(new TypeConstraint([node], NumberType));
+  this.addConstraint(new TypeConstraint([node.argument], NumberType));
+};
+
+/**
+ * Process a logical expression
+ * @param {LogicalExpression} node
+ */
+Scope.prototype.processLogicalExpression = function(node) {
+  this.addConstraint(new TypeConstraint([node], BooleanType));
+  this.addConstraint(new TypeConstraint([node.left, node.right], BooleanType));
+};
+
+/**
+ * Process a conditional expression
+ * @param {ConditionalExpression} node
+ */
+Scope.prototype.processConditionalExpression = function(node) {
+  this.addConstraint(new TypeConstraint([node.test], BooleanType));
+  this.addConstraint(
+      new TypeEqualityConstraint([node, node.alternate, node.consequent]));
+};
+
+/**
+ * Process a new expression
+ * @param {NewExpression} node
+ */
+Scope.prototype.processNewExpression = function(node) {
+  console.warn('Objects are weird and scary');
+};
+
+/**
+ * Process a call expression
+ * @param {CallExpression} node
+ */
+Scope.prototype.processCallExpression = function(node) {
+  console.warn('Function calls are weird and scary, I think other parts ' +
+      'will handle this');
+};
+
+/**
+ * Process a call expression
+ * @param {MemberExpression} node
+ */
+Scope.prototype.processMemberExpression = function(node) {
+  if (node.property.type !== 'Identifier') {
+    // TODO handle special cases for array access
+    console.error('Expressions in member expressions unsupported');
+    return;
+  }
+  this.addConstraint(
+      new HasPropertyConstraint([node.object], node.property.name));
 };
 
 /** Export constructor */
