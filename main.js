@@ -21,6 +21,7 @@
  * Okay, v0: get list of names and their apparent type
  */
 var Scope = require('./scope.js');
+var TypeSolver = require('./TypeSolver.js');
 var esprima = require('esprima');
 var d3 = require('d3');
 
@@ -58,20 +59,14 @@ function processSource(source) {
   var globalScope = new Scope(null, astRoot);
   globalScope.processNode(astRoot);
 
-  var allConstraints = getAllConstraints(globalScope);
+  var typeSolver = new TypeSolver(globalScope);
+  var allConstraints = typeSolver.constraints;
 
   window.globalScope = globalScope;
   window.allConstraints = allConstraints;
+  window.typeSolver = typeSolver;
 
   visualizeConstraints(allConstraints);
-}
-
-function getAllConstraints(scope) {
-  var constraints = [].concat(scope.constraints);
-  scope.childScopes.forEach(function(child) {
-    constraints = constraints.concat(getAllConstraints(child));
-  });
-  return constraints;
 }
 
 function visualizeConstraints(constraints) {

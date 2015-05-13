@@ -32,7 +32,7 @@ TypeEqualityConstraint.prototype.getSatisfiableTypes = function(assignments) {
   var allTypes = this.nodes.map(function(node) {
     return assignments.getTypes(node);
   });
-  return Utils.intersection(allTyes);
+  return Utils.intersectionByType(allTypes);
 };
 
 /**
@@ -51,9 +51,9 @@ function FunctionReturnsConstraint(scope, functionNodes, returnNode) {
  * @param {AssignmentFinder} assignments
  * @return {Array<Type>}
  */
-FunctionReturnsConstraint
-    .prototype.getSatisfiableTypes = function(assignments) {
-  return assignments.getTypes(returnNode);
+FunctionReturnsConstraint.prototype.getSatisfiableTypes =
+      function(assignments) {
+  return assignments.getTypes(this.returnNode);
 };
 
 /**
@@ -99,7 +99,7 @@ IntersectionConstraint.prototype.getSatisfiableTypes = function(assignments) {
   var allSatisfiableTypes = this.constraints.map(function(constraint) {
     return constraint.getSatisfiableTypes(assignments);
   });
-  return Utils.intersection(allSatisfiableTypes);
+  return Utils.intersectionByType(allSatisfiableTypes);
 };
 
 /**
@@ -133,7 +133,7 @@ HasPropertyConstraint.prototype.getNodes = function() {
  * @return {Array<Type>}
  */
 HasPropertyConstraint.prototype.getSatisfiableTypes = function(assignments) {
-  var sharedTypes = Utils.intersection(this.nodes.map(function(node) {
+  var sharedTypes = Utils.intersectionByType(this.nodes.map(function(node) {
     return assignments.getTypes(node);
   }));
   return sharedTypes.filter(function(sharedType) {
