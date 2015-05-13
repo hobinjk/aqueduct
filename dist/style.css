@@ -12,3 +12,31 @@
   stroke: #999;
   stroke-opacity: .6;
 }
+
+#javascript-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 400px;
+  height: 100%;
+}
+
+#d3-container {
+  position: absolute;
+  top: 0;
+  left: 400px;
+}
+
+.legend {
+  position: absolute;
+  top: 10px;
+  left: 410px;
+}
+
+.legend-entry {
+}
+
+.legend-entry-box {
+  width: 1em;
+  height: 1em;
+}

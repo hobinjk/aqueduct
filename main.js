@@ -22,8 +22,21 @@
  */
 var Scope = require('./scope.js');
 var TypeSolver = require('./TypeSolver.js');
+var Utils = require('./utils.js');
 var esprima = require('esprima');
 var d3 = require('d3');
+var ace = require('brace');
+require('brace/mode/javascript');
+require('brace/theme/monokai');
+
+var editor = ace.edit('javascript-editor');
+editor.getSession().setMode('ace/mode/javascript');
+editor.setTheme('ace/theme/monokai');
+
+function annotateSource() {
+  var newSource = processSource(editor.getValue());
+  // editor.setValue(newSource);
+}
 
 var xhr = new XMLHttpRequest();
 xhr.open('GET', 'test.js', true);
@@ -41,7 +54,10 @@ xhr.onload = function() {
     return;
   }
   var source = xhr.responseText;
-  processSource(source);
+  editor.setValue(source);
+  editor.clearSelection();
+
+  annotateSource();
 };
 
 /**
@@ -60,33 +76,47 @@ function processSource(source) {
   globalScope.processNode(astRoot);
 
   var typeSolver = new TypeSolver(globalScope);
-  var allConstraints = typeSolver.constraints;
+  var types = typeSolver.assignTypes();
 
   window.globalScope = globalScope;
-  window.allConstraints = allConstraints;
   window.typeSolver = typeSolver;
 
-  visualizeConstraints(allConstraints);
+  visualizeTypeSolver(typeSolver, types);
 }
 
-function visualizeConstraints(constraints) {
+function visualizeTypeSolver(typeSolver, types) {
   // Taken from d3 example of force-directed graphs
-  var nodes = getNodes(constraints);
-  var links = getLinks(constraints);
+  var nodes = getNodes(typeSolver.constraints);
+  var links = getLinks(typeSolver.constraints);
 
-  var width = window.innerWidth;
-  var height = width * 0.75;
+  var width = window.innerWidth - 400;
+  var height = window.innerHeight;
 
   var color = d3.scale.category20();
 
+  var colorTypes = [];
+  for (var i = 0; i < nodes.length; i++) {
+    colorTypes.push(nodes[i].type);
+  }
+  for (var i = 0; i < links.length; i++) {
+    colorTypes.push(links[i].type);
+  }
+  colorTypes = Utils.set(colorTypes);
+
+  function color(type) {
+    colorTypes.push(type);
+    return actualColor(type);
+  }
+
   var force = d3.layout.force()
-    .charge(-120)
-    .linkDistance(30)
-    .size([width, height]);
+    .charge(-300)
+    .linkDistance(100)
+    .size([width / 2, height / 2]);
 
   var svg = d3.select('body').append('svg')
       .attr('width', width)
-      .attr('height', height);
+      .attr('height', height)
+      .attr('id', 'd3-container');
 
   force.nodes(nodes)
        .links(links)
@@ -96,42 +126,90 @@ function visualizeConstraints(constraints) {
       .data(links)
     .enter().append('line')
       .attr('class', 'link')
-      .style('stroke-width', function(d) { return Math.sqrt(d.value); });
+      .style('stroke-width', '5px')
+      .style('stroke', function(d) {
+        return color(d.type);
+      });
 
   var node = svg.selectAll('.node')
       .data(nodes)
-    .enter().append('circle')
-      .attr('class', 'node')
-      .attr('r', 5)
+    .enter().append('g')
+      .attr('class', 'node');
+
+  node.append('circle')
+      .attr('r', function(d) {
+        return 10 + (getNodeText(d) + ': ' + getTypeText(d)).length * 4;
+      })
       .style('fill', function(d) { return color(d.type); })
       .call(force.drag);
 
+  function getTypeText(d) {
+    return types.find(function(type) {
+      return d === type.node;
+    }).type.name;
+  }
+
+  node.append('text')
+    .attr('dy', '.31em')
+    .attr('text-anchor', 'middle')
+    .text(function(d) {
+      return getNodeText(d) + ': ' + getTypeText(d);
+    });
+
   node.append('title')
     .text(function(d) {
-      if (d.type === 'FunctionDeclaration') {
-        return 'function ' + d.id.name;
-      } else if (d.type === 'Identifier') {
-        return 'id ' + d.name;
-      } else if (d.type === 'VariableData') {
-        return 'var ' + d.name;
-      } else if (d.type === 'FunctionData') {
-        return d.toString();
-      } else if (d.type === 'BinaryExpression' ||
-                 d.type === 'UnaryExpression') {
-        return d.operator;
-      }
-      return d.type;
+      return getNodeText(d) + ': ' + getTypeText(d);
     });
 
   force.on('tick', function() {
-    link.attr('x1', function(d) { return d.source.x; })
-        .attr('y1', function(d) { return d.source.y; })
-        .attr('x2', function(d) { return d.target.x; })
-        .attr('y2', function(d) { return d.target.y; });
+    link.attr('x1', function(d) { return d.source.x * 2; })
+        .attr('y1', function(d) { return d.source.y * 2; })
+        .attr('x2', function(d) { return d.target.x * 2; })
+        .attr('y2', function(d) { return d.target.y * 2; });
 
-    node.attr('cx', function(d) { return d.x; })
-        .attr('cy', function(d) { return d.y; });
+    node.attr('transform', function(d) {
+      return 'translate(' + (d.x * 2) + ',' + (d.y * 2) + ')';
+    });
   });
+
+  makeLegend(colorTypes, color);
+}
+
+function getNodeText(d) {
+  if (d.type === 'FunctionDeclaration') {
+    return 'function ' + d.id.name;
+  } else if (d.type === 'Identifier') {
+    return 'id ' + d.name;
+  } else if (d.type === 'VariableData') {
+    return 'var ' + d.name;
+  } else if (d.type === 'FunctionData') {
+    return d.toString();
+  } else if (d.type === 'BinaryExpression' ||
+             d.type === 'UnaryExpression') {
+    return d.operator;
+  }
+  return d.type;
+}
+
+function makeLegend(types, color) {
+  var legend = d3.select('body')
+      .append('div')
+      .attr('class', 'legend');
+
+  var legendEntry = legend.selectAll('.legend-entry')
+    .data(types)
+    .enter().append('div')
+      .attr('class', 'legend-entry')
+      .style('color', function(d) { return color(d); });
+
+  legendEntry.append('span')
+    .attr('class', 'legend-entry-box')
+    .style('background-color', function(d) { return color(d); });
+
+  legendEntry.append('p')
+    .text(function(d) {
+      return d;
+    });
 }
 
 function getNodes(constraints) {
@@ -164,7 +242,8 @@ function getLinks(constraints) {
       var target = nodes[(i + 1) % nodes.length];
       links.push({
         source: source,
-        target: target
+        target: target,
+        type: constraint.name
       });
     }
   });

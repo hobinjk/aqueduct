@@ -83,6 +83,7 @@ TypeSolver.prototype.getTypes = function(node) {
   }
 
   this.typeAssignments[nodeKey] = {
+    node: node,
     types: types,
     cached: true
   };

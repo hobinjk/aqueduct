@@ -1,6 +1,7 @@
 var Utils = require('./utils.js');
 
 function TypeConstraint(scope, nodes, type) {
+  this.name = 'TypeConstraint';
   this.nodes = scope.constraintReduceAll(nodes);
   this.type = type;
 }
@@ -21,6 +22,7 @@ TypeConstraint.prototype.getNodes = function() {
 };
 
 function TypeEqualityConstraint(scope, nodes) {
+  this.name = 'TypeEqualityConstraint';
   this.nodes = scope.constraintReduceAll(nodes);
 }
 
@@ -43,6 +45,7 @@ TypeEqualityConstraint.prototype.getNodes = function() {
 };
 
 function FunctionReturnsConstraint(scope, functionNodes, returnNode) {
+  this.name = 'FunctionReturnsConstraint';
   this.functionNodes = scope.constraintReduceAll(functionNodes);
   this.returnNode = scope.constraintReduce(returnNode);
 }
@@ -64,6 +67,7 @@ FunctionReturnsConstraint.prototype.getNodes = function() {
 };
 
 function UnionConstraint(constraints) {
+  this.name = 'UnionConstraint';
   this.constraints = constraints;
 }
 
@@ -88,6 +92,7 @@ UnionConstraint.prototype.getNodes = function() {
 };
 
 function IntersectionConstraint(constraints) {
+  this.name = 'IntersectionConstraint';
   this.constraints = constraints;
 }
 
@@ -112,6 +117,7 @@ IntersectionConstraint.prototype.getNodes = function() {
 };
 
 function HasPropertyConstraint(scope, nodes, propertyName) {
+  this.name = 'HasPropertyConstraint';
   this.nodes = scope.constraintReduceAll(nodes);
   this.nodes.forEach(function(node) {
     if (node.type) {

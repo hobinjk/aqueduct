@@ -29,6 +29,7 @@
     "watchify": "^3.1.0"
   },
   "dependencies": {
+    "brace": "^0.5.1",
     "d3": "^3.5.5"
   }
 }
