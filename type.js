@@ -44,14 +44,32 @@ AnyType.prototype.satisfies = function(otherType) {
   return true;
 };
 
-/** Built-in types */
+/** Built-in boolean type */
 Type.BooleanType = new Type('boolean',
                             Object.getOwnPropertyNames(Boolean.prototype));
+
+/** Built-in label type which really should never exist */
 Type.LabelType = new Type('label', []);
+
+/** Built-in number type */
 Type.NumberType = new Type('number',
                            Object.getOwnPropertyNames(Number.prototype));
-Type.StringType = new Type('String', Object.getOwnPropertyNames(String.prototype));
-Type.ObjectType = new Type('Object', Object.getOwnPropertyNames(Object.prototype));
+
+/** Built-in String type */
+Type.StringType = new Type('String',
+    Object.getOwnPropertyNames(String.prototype)
+          .concat(Object.getOwnPropertyNames('')));
+
+/** Built-in Array type */
+Type.ArrayType = new Type('Array', Object.getOwnPropertyNames(Array.prototype)
+    .concat(Object.getOwnPropertyNames([])));
+
+/** Built-in Object type */
+Type.ObjectType = new Type('Object',
+    Object.getOwnPropertyNames(Object.prototype));
+
+/** Additionally export type hole */
 Type.AnyType = new AnyType();
 
+/** Export Type */
 module.exports = Type;
