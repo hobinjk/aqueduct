@@ -127,22 +127,41 @@ TypeSolver.prototype.assignTypes = function() {
     var key = this.getKey(node);
     this.typeAssignments[key] = {
       types: [Type.AnyType],
+      node: node,
       cached: true
     };
   }
 
   var bound = 0;
 
-  while (!this.fixedPointReached && bound < 100) {
+  while (!this.fixedPointReached && bound < 1000) {
     this.fixedPointReached = true;
     bound++;
 
     this.getAllTypes();
     var allTypesGrouped = this.getAllTypes();
 
-    console.log('Decreased possibilities to ' + typeCount);
   }
-  return this.typeAssignments;
+  if (bound === 1000) {
+    console.warn('Unable to converge on fixed-point solution');
+  }
+
+  var finalAssignments = [];
+  var typeAssignments = this.typeAssignments;
+  Object.keys(this.typeAssignments).forEach(function(key) {
+    var finalAssignment = typeAssignments[key];
+    var types = finalAssignment.types;
+    if (types.length !== 1) {
+      console.warn('Non-convergence detected, check near ' +
+          finalAssignment.node.loc.toSource());
+    }
+    finalAssignments.push({
+      node: finalAssignment.node,
+      type: types[0]
+    });
+  });
+
+  return finalAssignments;
 };
 
 /** Export constructor */
