@@ -23,6 +23,8 @@
 var Scope = require('./scope.js');
 var TypeSolver = require('./TypeSolver.js');
 var Utils = require('./utils.js');
+var IntersectionConstraint =
+      require('./constraint-variants.js').IntersectionConstraint;
 var esprima = require('esprima');
 var d3 = require('d3');
 var ace = require('brace');
@@ -32,6 +34,11 @@ require('brace/theme/monokai');
 var editor = ace.edit('javascript-editor');
 editor.getSession().setMode('ace/mode/javascript');
 editor.setTheme('ace/theme/monokai');
+
+document.getElementById('assign-button')
+        .addEventListener('click', function() {
+  annotateSource();
+});
 
 function annotateSource() {
   var newSource = processSource(editor.getValue());
@@ -76,7 +83,7 @@ function processSource(source) {
   globalScope.processNode(astRoot);
 
   var typeSolver = new TypeSolver(globalScope);
-  var types = typeSolver.assignTypes();
+  window.types = typeSolver.assignTypes();
 
   window.globalScope = globalScope;
   window.typeSolver = typeSolver;
@@ -113,6 +120,11 @@ function visualizeTypeSolver(typeSolver, types) {
     .linkDistance(100)
     .size([width / 2, height / 2]);
 
+  var prevSvg = document.getElementById('d3-container');
+  if (prevSvg) {
+    prevSvg.parentNode.removeChild(prevSvg);
+  }
+
   var svg = d3.select('body').append('svg')
       .attr('width', width)
       .attr('height', height)
@@ -138,27 +150,45 @@ function visualizeTypeSolver(typeSolver, types) {
 
   node.append('circle')
       .attr('r', function(d) {
-        return 10 + (getNodeText(d) + ': ' + getTypeText(d)).length * 4;
+        return 10 + (getNodeText(d) + ': ' + getNodeTypeText(d)).length * 3.5;
       })
       .style('fill', function(d) { return color(d.type); })
       .call(force.drag);
 
-  function getTypeText(d) {
-    return types.find(function(type) {
-      return d === type.node;
-    }).type.name;
+  function getNodeTypeText(node) {
+    var finalTypes = types.find(function(candidateType) {
+      return node === candidateType.node;
+    });
+    if (!finalTypes) {
+      return '??';
+    }
+    return getTypesText(finalTypes.types);
+  }
+
+  function getTypesText(types) {
+    if (types.length === 0) {
+      return 'UNSAT';
+    }
+    var text = '';
+    for (var i = 0; i < types.length; i++) {
+      text += types[i].name;
+      if (i < types.length - 1) {
+        text += '|';
+      }
+    }
+    return text;
   }
 
   node.append('text')
     .attr('dy', '.31em')
     .attr('text-anchor', 'middle')
     .text(function(d) {
-      return getNodeText(d) + ': ' + getTypeText(d);
+      return getNodeText(d) + ': ' + getNodeTypeText(d);
     });
 
   node.append('title')
     .text(function(d) {
-      return getNodeText(d) + ': ' + getTypeText(d);
+      return getNodeText(d) + ': ' + getNodeTypeText(d);
     });
 
   force.on('tick', function() {
@@ -192,6 +222,10 @@ function getNodeText(d) {
 }
 
 function makeLegend(types, color) {
+  var prevLegend = document.querySelector('.legend');
+  if (prevLegend) {
+    prevLegend.parentNode.removeChild(prevLegend);
+  }
   var legend = d3.select('body')
       .append('div')
       .attr('class', 'legend');

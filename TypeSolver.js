@@ -95,7 +95,18 @@ TypeSolver.prototype.getTypes = function(node) {
  * @return {String}
  */
 TypeSolver.prototype.getKey = function(node) {
-  return node.toSource();
+  var obj = {};
+  Object.keys(node).forEach(function(key) {
+    if (key == 'loc' || key == 'type' || key === 'value' || key === 'name') {
+      obj[key] = node[key];
+    }
+    // if (key === 'px' || key === 'py' || key === 'x' || key === 'y' ||
+    //     key === 'weight' || key === 'initExpr' || key === 'index') {
+    //   return;
+    // }
+    // obj[key] = node[key];
+  });
+  return obj.toSource();
 };
 
 /**
@@ -140,9 +151,10 @@ TypeSolver.prototype.assignTypes = function() {
     bound++;
 
     this.getAllTypes();
-    var allTypesGrouped = this.getAllTypes();
-
+    this.getAllTypes();
+    this.getAllTypes();
   }
+
   if (bound === 1000) {
     console.warn('Unable to converge on fixed-point solution');
   }
@@ -152,13 +164,13 @@ TypeSolver.prototype.assignTypes = function() {
   Object.keys(this.typeAssignments).forEach(function(key) {
     var finalAssignment = typeAssignments[key];
     var types = finalAssignment.types;
-    if (types.length !== 1) {
-      console.warn('Non-convergence detected, check near ' +
-          finalAssignment.node.loc.toSource());
+    if (types.length === 0) {
+      console.warn('Unsatisfiability detected, check near ' +
+          finalAssignment.toSource());
     }
     finalAssignments.push({
       node: finalAssignment.node,
-      type: types[0]
+      types: types
     });
   });
 

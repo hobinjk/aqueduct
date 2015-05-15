@@ -8,12 +8,14 @@ var TypeEqualityConstraint = ConstraintVariants.TypeEqualityConstraint;
 var TypeConstraint = ConstraintVariants.TypeConstraint;
 var UnionConstraint = ConstraintVariants.UnionConstraint;
 var IntersectionConstraint = ConstraintVariants.IntersectionConstraint;
+var HasPropertyConstraint = ConstraintVariants.HasPropertyConstraint;
 
 var BooleanType = Type.BooleanType;
 var LabelType = Type.LabelType;
 var NumberType = Type.NumberType;
 var StringType = Type.StringType;
 var ObjectType = Type.ObjectType;
+var AnyType = Type.AnyType;
 
 function Scope(parentScope, node) {
   if (parentScope) {
@@ -77,7 +79,7 @@ Scope.prototype.addFunction = function(functionName) {
     }
     parentScope = parentScope.parentScope;
   }
-  var funData = new FunctionData(functionName);
+  var funData = new FunctionData(this, functionName);
   this.functions[functionName] = funData;
   return funData;
 };
@@ -152,6 +154,28 @@ Scope.prototype.processEmptyStatement = function(node) {
  * @param {Identifier} node
  */
 Scope.prototype.processIdentifier = function(node) {
+};
+
+/**
+ * Process a literal
+ * @param {Literal} node
+ */
+Scope.prototype.processLiteral = function(node) {
+  var type = AnyType;
+  switch (typeof(node.value)) {
+    case 'string':
+      type = StringType;
+      break;
+    case 'boolean':
+      type = BooleanType;
+      break;
+    case 'number':
+      type = NumberType;
+      break;
+  }
+  console.log('Processing literal with type ' + type.name + ' ? ' + type.type);
+
+  this.addConstraint(new TypeConstraint(this, [node], type));
 };
 
 /**
@@ -266,7 +290,7 @@ Scope.prototype.processReturnStatement = function(node) {
 Scope.prototype.processThrowStatement = function(node) {
   this.addConstraint(new UnionConstraint([
         new TypeConstraint(this, [node.argument], StringType),
-        new TypeConstraint(this, [node.argument], new Type('Error'))]));
+        new TypeConstraint(this, [node.argument], Type.ErrorType)]));
   this.processNode(node.argument);
 };
 
@@ -285,7 +309,7 @@ Scope.prototype.processTryStatement = function(node) {
   node.guardedHandlers.forEach(function(handler) {
     var handlerScope = new Scope(this, node);
     handlerScope.processNode(handler);
-  });
+  }.bind(this));
   if (node.finalizer) {
     var finalizerScope = new Scope(this, node);
     finalizerScope.processNode(node.finalizer);
@@ -328,7 +352,7 @@ Scope.prototype.processForStatement = function(node) {
   }
   if (node.test) {
     forScope.addConstraint(new TypeConstraint(this, [node.test], BooleanType));
-    forScope.processNode(test);
+    forScope.processNode(node.test);
   }
   if (node.update) {
     forScope.processNode(node.update);
@@ -401,8 +425,12 @@ Scope.prototype.processVariableDeclaration = function(node) {
  */
 Scope.prototype.processVariableDeclarator = function(node) {
   if (node.id.type === 'Identifier') {
-    this.addVariable(node.id.name, node.it); // questionable
-    this.addConstraint(new TypeEqualityConstraint(this, [node.id, node.init]));
+    this.addVariable(node.id.name, node.init); // questionable
+    if (node.init) {
+      this.processNode(node.init);
+      this.addConstraint(
+          new TypeEqualityConstraint(this, [node.id, node.init]));
+    }
   } else {
     this.error('Destructuring not handled');
   }
@@ -535,15 +563,28 @@ Scope.prototype.processAssignmentExpression = function(node) {
  * @return {VariableData?}
  */
 Scope.prototype.getVariable = function(name) {
-  var scope = this;
-  while (scope) {
-    var variable = scope.variables[name];
-    if (variable) {
-      return variable;
-    }
-    scope = scope.parentScope;
+  var variable = this.variables[name];
+  if (variable) {
+    return variable;
+  }
+
+  if (this.parentScope) {
+    return this.parentScope.getVariable(name);
+  } else {
+    return this.addVariable(name);
   }
   return null;
+};
+
+/**
+ * Get the global scope
+ * @return {Scope}
+ */
+Scope.prototype.getGlobalScope = function() {
+  if (this.parentScope) {
+    return this.parentScope.getGlobalScope();
+  }
+  return this;
 };
 
 /**
@@ -566,6 +607,8 @@ Scope.prototype.getFunction = function(node) {
   }
   if (this.parentScope) {
     return this.parentScope.getFunction(node);
+  } else {
+    return this.addFunction(name);
   }
   return null;
 };
@@ -637,6 +680,14 @@ Scope.prototype.processConditionalExpression = function(node) {
  */
 Scope.prototype.processNewExpression = function(node) {
   console.warn('Objects are weird and scary');
+  this.processNode(node.callee);
+
+  var functionData = this.getFunction(node.callee);
+  functionData.addCall(node.arguments);
+
+  node.arguments.forEach(function(arg) {
+    this.processNode(arg);
+  }.bind(this));
 };
 
 /**
@@ -644,11 +695,13 @@ Scope.prototype.processNewExpression = function(node) {
  * @param {CallExpression} node
  */
 Scope.prototype.processCallExpression = function(node) {
-  var functionData = node.callee;
+  this.processNode(node.callee);
+
+  var functionData = this.getFunction(node.callee);
   functionData.addCall(node.arguments);
-  node.arguments.forEach(function() {
-    this.processNode(node);
-  });
+  node.arguments.forEach(function(arg) {
+    this.processNode(arg);
+  }.bind(this));
 };
 
 /**

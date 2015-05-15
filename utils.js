@@ -1,5 +1,18 @@
 var AnyType = require('./type.js').AnyType;
 
+function getKey(node) {
+  if (typeof(node) !== 'object') {
+    return node;
+  }
+  var obj = {};
+  Object.keys(node).forEach(function(key) {
+    if (key == 'loc' || key == 'type' || key === 'value' || key === 'name') {
+      obj[key] = node[key];
+    }
+  });
+  return obj.toSource();
+}
+
 function union(arrays) {
   var allValues = [];
   for (var i = 0; i < arrays.length; i++) {
@@ -15,7 +28,7 @@ function intersection(arrays) {
 
   var intersectionSet = set(arrays[0]);
   for (var i = 1; i < arrays.length; i++) {
-    intersectionSet = and(intersectionSet, set(arrays[1]));
+    intersectionSet = and(intersectionSet, set(arrays[i]));
   }
 
   return intersectionSet;
@@ -46,10 +59,10 @@ function set(array) {
   var arrSet = [];
   for (var i = 0; i < array.length; i++) {
     var value = array[i];
-    if (present[value]) {
+    if (present[getKey(value)]) {
       continue;
     }
-    present[value] = true;
+    present[getKey(value)] = true;
     arrSet.push(value);
   }
   return arrSet;
@@ -59,10 +72,10 @@ function and(setA, setB) {
   var present = {};
   var andSet = [];
   for (var i = 0; i < setA.length; i++) {
-    present[setA[i]] = true;
+    present[getKey(setA[i])] = true;
   }
   for (var i = 0; i < setB.length; i++) {
-    if (!present[setB[i]]) {
+    if (!present[getKey(setB[i])]) {
       continue;
     }
     andSet.push(setB[i]);
@@ -75,5 +88,6 @@ module.exports = {
   union: union,
   intersection: intersection,
   intersectionByType: intersectionByType,
-  set: set
+  set: set,
+  and: and
 };

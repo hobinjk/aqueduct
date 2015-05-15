@@ -113,7 +113,11 @@ IntersectionConstraint.prototype.getSatisfiableTypes = function(assignments) {
 IntersectionConstraint.prototype.getNodes = function() {
   // All constraint members are applied to the same set of nodes
   // TODO: not actually enforced
-  return this.constraints[0].getNodes();
+  var nodes = [];
+  for (var i = 0; i < this.constraints.length; i++) {
+    nodes = nodes.concat(this.constraints[i].getNodes());
+  }
+  return nodes;
 };
 
 function HasPropertyConstraint(scope, nodes, propertyName) {
@@ -153,5 +157,6 @@ module.exports = {
   TypeEqualityConstraint: TypeEqualityConstraint,
   FunctionReturnsConstraint: FunctionReturnsConstraint,
   UnionConstraint: UnionConstraint,
-  IntersectionConstraint: IntersectionConstraint
+  IntersectionConstraint: IntersectionConstraint,
+  HasPropertyConstraint: HasPropertyConstraint
 };

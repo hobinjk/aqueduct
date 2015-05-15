@@ -30,7 +30,8 @@
 .legend {
   position: absolute;
   top: 10px;
-  left: 410px;
+  right: 10px;
+  text-align: right;
 }
 
 .legend-entry {
@@ -40,3 +41,11 @@
   width: 1em;
   height: 1em;
 }
+
+#assign-button {
+  position: absolute;
+  top: 10px;
+  left: 410px;
+  z-index: 100;
+}
+

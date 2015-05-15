@@ -1,8 +1,11 @@
-function FunctionData(name) {
+var ConstraintVariants = require('./constraint-variants.js');
+var TypeEqualityConstraint = ConstraintVariants.TypeEqualityConstraint;
+
+function FunctionData(scope, name) {
   this.type = 'FunctionData';
+  this.scope = scope;
   this.name = name;
   this.params = [];
-  this.scope = null;
 }
 
 /**
@@ -20,7 +23,11 @@ FunctionData.prototype.addParam = function(index, name) {
 FunctionData.prototype.addCall = function(args) {
   if (args.length !== this.params.length) {
     console.error('Incorrect number of parameters to function call');
-    return;
+    if (args.length > this.params.length) {
+      for (var i = this.params.length; i < args.length; i++) {
+        this.params[i] = '_anon_' + i;
+      }
+    }
   }
 
   for (var i = 0; i < this.params.length; i++) {

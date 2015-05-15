@@ -68,6 +68,24 @@ Type.ArrayType = new Type('Array', Object.getOwnPropertyNames(Array.prototype)
 Type.ObjectType = new Type('Object',
     Object.getOwnPropertyNames(Object.prototype));
 
+/** Built-in Date type */
+Type.DateType = new Type('Date', Object.getOwnPropertyNames(Date.prototype)
+    .concat(Object.getOwnPropertyNames(new Date())));
+
+/** Built-in Error type */
+Type.ErrorType = new Type('Error', Object.getOwnPropertyNames(Error.prototype)
+    .concat(Object.getOwnPropertyNames(new Error('a'))));
+
+/** Built-in RegExp type */
+Type.RegExpType = new Type('RegExp',
+    Object.getOwnPropertyNames(RegExp.prototype)
+          .concat(Object.getOwnPropertyNames(/a/)));
+
+/** Built-in Function type */
+Type.FunctionType = new Type('Function',
+    Object.getOwnPropertyNames(Function.prototype)
+          .concat(Object.getOwnPropertyNames(function() {return 12;})));
+
 /** Additionally export type hole */
 Type.AnyType = new AnyType();
 
