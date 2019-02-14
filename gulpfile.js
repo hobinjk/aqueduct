@@ -7,25 +7,24 @@ var browserify = require('browserify');
 var gulp = require('gulp');
 var source = require('vinyl-source-stream');
 var buffer = require('vinyl-buffer');
-var gutil = require('gulp-util');
+var log = require('gulplog');
 var sourcemaps = require('gulp-sourcemaps');
-var assign = require('lodash.assign');
 
-var customOptions = {
+var b = browserify({
   entries: './main.js',
-  debug: true
-};
-
-var options = assign({}, watchify.args, customOptions);
-var b = watchify(browserify(options));
+  debug: true,
+  cache: {},
+  packageCache: {},
+  plugin: [watchify]
+});
 
 gulp.task('javascript', bundle);
 b.on('update', bundle);
-b.on('log', gutil.log);
+b.on('log', log.info);
 
 function bundle() {
   return b.bundle()
-    .on('error', gutil.log.bind(gutil, 'Browserify Error'))
+    .on('error', log.error.bind(log, 'Browserify Error'))
     .pipe(source('bundle.js'))
     .pipe(buffer())
     .pipe(sourcemaps.init({loadMaps: true}))
@@ -33,4 +32,4 @@ function bundle() {
     .pipe(gulp.dest('./dist'));
 }
 
-gulp.task('default', ['javascript']);
+gulp.task('default', gulp.series('javascript'));
